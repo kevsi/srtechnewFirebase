@@ -1,12 +1,10 @@
 import React from "react";
-import { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/components/AuthContext";
 
 export default function Index() {
-  const [isPlaying, setIsPlaying] = useState(false);
   const { user } = useAuth();
 
   const isAuthenticated = user && user.verified;
@@ -98,72 +96,31 @@ export default function Index() {
         </div>
       </section>
 
-      {/* Video/Portfolio Preview Section */}
+      {/* Hero Image Section */}
       <section className="relative py-12 lg:py-20 px-6 bg-white">
         <div className="max-w-[1440px] mx-auto">
-          <div className="relative bg-black rounded-lg overflow-hidden shadow-2xl aspect-[16/10]">
-            {!isPlaying ? (
-              <>
-                <div className="absolute inset-0 grid grid-cols-2 opacity-30">
-                  <div className="grid grid-rows-2">
-                    <img
-                      loading="lazy"
-                      src="https://api.builder.io/api/v1/image/assets/TEMP/254c96de53aa74e5e9d6c9ead451840f868809db?width=1274"
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                    <img
-                      loading="lazy"
-                      src="https://api.builder.io/api/v1/image/assets/TEMP/95ad8dc98ab52cd728fa90b2acc0ff7c21557b1d?width=1274"
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="grid grid-rows-2">
-                    <img
-                      loading="lazy"
-                      src="https://api.builder.io/api/v1/image/assets/TEMP/f53dca0b421643e6689834667f30625f6923ee2c?width=1248"
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                    <img
-                      loading="lazy"
-                      src="https://api.builder.io/api/v1/image/assets/TEMP/99765e1af9c47da17880562b254c2330f1ccf7ff?width=1240"
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                </div>
-
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <button
-                    aria-label="Play demo"
-                    onClick={() => setIsPlaying(true)}
-                    className="w-[80px] h-[80px] bg-lime rounded-full flex items-center justify-center hover:scale-105 transition-transform focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-lime/40"
-                  >
-                    <svg
-                      width="30"
-                      height="30"
-                      viewBox="0 0 70 70"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M30.9805 24.5438C30.805 24.4266 30.601 24.3593 30.3902 24.349C30.1794 24.3386 29.9698 24.3856 29.7836 24.485C29.5975 24.5844 29.4418 24.7324 29.3331 24.9132C29.2243 25.0941 29.1667 25.3011 29.1663 25.5121V44.4879C29.1667 44.6989 29.2243 44.9059 29.3331 45.0868C29.4418 45.2676 29.5975 45.4156 29.7836 45.515C29.9698 45.6144 30.1794 45.6614 30.3902 45.651C30.601 45.6407 30.805 45.5734 30.9805 45.4562L45.2109 35.9713C45.371 35.8648 45.5022 35.7204 45.593 35.5509C45.6837 35.3815 45.7312 35.1922 45.7312 35C45.7312 34.8078 45.6837 34.6185 45.593 34.4491C45.5022 34.2796 45.371 34.1352 45.2109 34.0287L30.9776 24.5438H30.9805Z"
-                        fill="black"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </>
-            ) : (
-              <video
-                className="absolute inset-0 w-full h-full object-cover"
-                src="https://cdn.pixabay.com/vimeo/239488055/coffee-13027.mp4?width=1280&hash=ebc2518f69c271df235e1f2e9b969c8ffbe69df2"
-                controls
-                autoPlay
-              />
-            )}
+          <div className="relative rounded-lg overflow-hidden shadow-2xl aspect-[16/9] bg-gray-900">
+            <img
+              src="https://cdn.builder.io/api/v1/image/assets%2Fe63f1bfa4aeb4c919cee7af50d229bf4%2F940771edf6ca43eda8cbac5a0663bf31?width=1920"
+              alt="SR Technologies - Solutions Numériques"
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent flex items-end">
+              <div className="p-8 lg:p-12">
+                <h2 className="text-white font-['Work_Sans'] text-2xl lg:text-4xl font-bold mb-4">
+                  Transformez Vos Idées en Réalité Numérique
+                </h2>
+                <p className="text-white/90 text-lg mb-6 max-w-[600px]">
+                  SR Technologies vous accompagne dans votre transformation digitale avec des solutions innovantes et sur mesure.
+                </p>
+                <Link
+                  to="/contact"
+                  className="inline-flex bg-lime text-black px-6 py-3 rounded-lg font-semibold hover:bg-lime/90 transition-colors"
+                >
+                  Nous Contacter
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </section>

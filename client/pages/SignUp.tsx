@@ -6,14 +6,15 @@ import { Rocket, Shield, Zap, Award } from "lucide-react";
 
 export default function SignUp() {
   const navigate = useNavigate();
-  const { user, signup, onboarding, loginWithGoogle } = useAuth();
+  const { user, signup, onboarding, loginWithGoogle, refreshUser } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     // Si l'utilisateur est déjà connecté et a complété l'onboarding, rediriger vers l'accueil
-    if (user && onboarding && onboarding.role && onboarding.age) {
+    if (user && onboarding && Object.keys(onboarding).length > 0) {
       navigate("/");
     }
   }, [user, onboarding, navigate]);
@@ -21,6 +22,7 @@ export default function SignUp() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
     try {
       await signup(email, password);
@@ -28,21 +30,45 @@ export default function SignUp() {
       navigate("/onboarding");
     } catch (err: any) {
       setError(err.message || "Erreur lors de l'inscription. Veuillez réessayer.");
+      setIsLoading(false);
     }
   };
 
   const handleGoogleSignup = async () => {
+    setIsLoading(true);
     try {
       await loginWithGoogle();
-
-      const raw = localStorage.getItem("_auth_onboarding");
-      if (onboarding || raw) {
-        navigate("/");
-      } else {
-        navigate("/onboarding");
-      }
+      
+      // Attendre un peu pour que l'utilisateur soit défini dans le contexte
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Rafraîchir les données utilisateur depuis Firestore pour obtenir isAdmin
+      await refreshUser();
+      
+      // Attendre un peu pour que l'onboarding soit chargé depuis Firestore
+      setTimeout(() => {
+        const raw = localStorage.getItem("_auth_onboarding");
+        let onboardingData = null;
+        if (raw) {
+          try {
+            onboardingData = JSON.parse(raw);
+          } catch (e) {
+            console.error("Error parsing onboarding data", e);
+          }
+        }
+        
+        // Vérifier si l'onboarding existe déjà et est complet (avoir au moins un champ rempli)
+        const hasOnboarding = (onboarding && Object.keys(onboarding).length > 0) || (onboardingData && Object.keys(onboardingData).length > 0);
+        if (hasOnboarding) {
+          navigate("/");
+        } else {
+          navigate("/onboarding");
+        }
+        setIsLoading(false);
+      }, 500);
     } catch (err: any) {
       setError(err.message || "Erreur lors de l'inscription Google.");
+      setIsLoading(false);
     }
   };
 
@@ -68,14 +94,22 @@ export default function SignUp() {
               <div className="space-y-6">
                 <button
                   onClick={handleGoogleSignup}
-                  className="w-full inline-flex items-center justify-center gap-3 border border-gray-300 px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors"
+                  disabled={isLoading}
+                  className="w-full inline-flex items-center justify-center gap-3 border border-gray-300 px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
                   type="button"
                 >
-                  <img
-                    src="data:image/svg+xml;utf8,<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' width='18' height='18'><path fill='%23EA4335' d='M24 9.5c3.9 0 7.4 1.4 10.1 3.7l7.6-7.6C36.6 2.6 30.7 0 24 0 14.5 0 6.7 4.9 2.7 12l8.8 6.8C13.8 14 18.5 9.5 24 9.5z'/><path fill='%234285F4' d='M46.5 24.5c0-1.6-.1-3.2-.4-4.7H24v9.1h12.6c-.5 3-2.2 5.6-4.7 7.3l7.3 5.7C43.9 37.1 46.5 31.1 46.5 24.5z'/><path fill='%23FBBC05' d='M10.9 28.7C9.9 26.9 9.3 24.8 9.3 22.5s.6-4.4 1.6-6.2L2.1 9.5C.8 12 0 16 0 20.9c0 4.8.8 8.9 2.1 11.4l8.8-3.6z'/></svg>"
-                    alt="Google"
-                  />
-                  S'inscrire avec Google
+                  {isLoading ? (
+                    <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  ) : (
+                    <img
+                      src="data:image/svg+xml;utf8,<?xml version='1.0' encoding='utf-8'?><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' width='18' height='18'><path fill='%23EA4335' d='M24 9.5c3.9 0 7.4 1.4 10.1 3.7l7.6-7.6C36.6 2.6 30.7 0 24 0 14.5 0 6.7 4.9 2.7 12l8.8 6.8C13.8 14 18.5 9.5 24 9.5z'/><path fill='%234285F4' d='M46.5 24.5c0-1.6-.1-3.2-.4-4.7H24v9.1h12.6c-.5 3-2.2 5.6-4.7 7.3l7.3 5.7C43.9 37.1 46.5 31.1 46.5 24.5z'/><path fill='%23FBBC05' d='M10.9 28.7C9.9 26.9 9.3 24.8 9.3 22.5s.6-4.4 1.6-6.2L2.1 9.5C.8 12 0 16 0 20.9c0 4.8.8 8.9 2.1 11.4l8.8-3.6z'/></svg>"
+                      alt="Google"
+                    />
+                  )}
+                  {isLoading ? 'Inscription...' : "S'inscrire avec Google"}
                 </button>
 
                 <div className="text-center text-sm text-gray-400">ou</div>
@@ -117,9 +151,20 @@ export default function SignUp() {
 
                   <button
                     type="submit"
-                    className="w-full bg-lime hover:bg-lime/90 text-black font-semibold px-6 py-3.5 rounded-lg transition-all duration-200"
+                    disabled={isLoading}
+                    className="w-full bg-lime hover:bg-lime/90 text-black font-semibold px-6 py-3.5 rounded-lg transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    Create Account
+                    {isLoading ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Inscription...
+                      </>
+                    ) : (
+                      'Create Account'
+                    )}
                   </button>
                 </form>
 
@@ -200,4 +245,3 @@ export default function SignUp() {
     </div>
   );
 }
-

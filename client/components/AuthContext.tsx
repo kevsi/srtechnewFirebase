@@ -26,6 +26,7 @@ type AuthContextValue = {
   verifyCode: (email: string, code: string) => Promise<boolean>;
   isAdmin: () => boolean;
   refreshUser: () => Promise<void>;
+  sessionExpiry: number | null;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -39,14 +40,65 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [onboarding, setOnboarding] = useState<OnboardingData | null>(null);
+  const [sessionExpiry, setSessionExpiry] = useState<number | null>(null);
+
+  // Session timeout: 1 hour in milliseconds
+  const SESSION_TIMEOUT = 60 * 60 * 1000; // 1 hour
+
+  // Check session validity
+  useEffect(() => {
+    const checkSession = () => {
+      const expiry = localStorage.getItem('_session_expiry');
+      if (expiry && parseInt(expiry) < Date.now()) {
+        // Session expired, logout
+        logout();
+      } else {
+        setSessionExpiry(parseInt(expiry));
+      }
+    };
+
+    checkSession();
+
+    // Check every minute
+    const interval = setInterval(checkSession, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Extend session on user activity
+  useEffect(() => {
+    const extendSession = () => {
+      if (user && sessionExpiry) {
+        const newExpiry = Date.now() + SESSION_TIMEOUT;
+        localStorage.setItem('_session_expiry', newExpiry.toString());
+        setSessionExpiry(newExpiry);
+      }
+    };
+
+    // Extend session on user activity (click, keypress, scroll)
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+    events.forEach(event => {
+      document.addEventListener(event, extendSession, { passive: true });
+    });
+
+    return () => {
+      events.forEach(event => {
+        document.removeEventListener(event, extendSession);
+      });
+    };
+  }, [user, sessionExpiry]);
 
   useEffect(() => {
     let unsub: any = null;
     try {
       const init = async () => {
+        console.log("Firebase enabled:", isFirebaseEnabled);
         if (isFirebaseEnabled) {
-          const { auth: fbAuth, db: fbDb, googleProvider } = await initializeFirebase();
-          if (fbAuth) {
+          const { auth: fbAuth, db: fbDb, googleProvider, error } = await initializeFirebase();
+          if (error) {
+            console.error("Firebase initialization error:", error);
+          }
+          console.log("Firebase auth:", fbAuth, "db:", fbDb);
+          if (fbAuth && fbDb) {
             const { onAuthStateChanged } = await import('firebase/auth');
             unsub = onAuthStateChanged(fbAuth, async (fbUser: any) => {
               if (fbUser) {
@@ -63,18 +115,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                   // Charger ou créer les données utilisateur dans Firestore
                   const userRef = doc(fbDb, "users", fbUser.uid);
+                  console.log("Fetching user from Firestore:", fbUser.uid);
                   const userSnap = await getDoc(userRef);
+                  console.log("User snap exists:", userSnap.exists(), userSnap.data());
 
                   if (userSnap.exists()) {
                     const userData = userSnap.data();
-                    baseUser.isAdmin = userData.isAdmin === true;
+                    // Accepter soit boolean true soit string "true"
+                    baseUser.isAdmin = userData.isAdmin === true || userData.isAdmin === 'true';
                     baseUser.name = userData.name || baseUser.name;
+                    console.log("User isAdmin set to:", baseUser.isAdmin);
                   } else {
+                    // Ne pas définir isAdmin ici - il sera défini manuellement dans Firestore
                     await setDoc(userRef, {
                       email: fbUser.email,
                       name: fbUser.displayName || null,
                       verified: fbUser.emailVerified,
-                      isAdmin: false,
                       createdAt: serverTimestamp(),
                       updatedAt: serverTimestamp(),
                     });
@@ -95,6 +151,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 setUser(baseUser);
                 localStorage.setItem("_auth_user", JSON.stringify(baseUser));
+                
+                // Set session expiry (1 hour from now)
+                const expiry = Date.now() + SESSION_TIMEOUT;
+                localStorage.setItem('_session_expiry', expiry.toString());
+                setSessionExpiry(expiry);
               } else {
                 const rawUser = localStorage.getItem("_auth_user");
                 const rawOnb = localStorage.getItem("_auth_onboarding");
@@ -106,8 +167,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           const rawUser = localStorage.getItem("_auth_user");
           const rawOnb = localStorage.getItem("_auth_onboarding");
+          const rawExpiry = localStorage.getItem("_session_expiry");
           if (rawUser) setUser(JSON.parse(rawUser));
           if (rawOnb) setOnboarding(JSON.parse(rawOnb));
+          if (rawExpiry) setSessionExpiry(parseInt(rawExpiry));
         }
       };
       void init();
@@ -238,7 +301,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setUser(null);
     setOnboarding(null);
+    setSessionExpiry(null);
     localStorage.removeItem("_auth_user");
+    localStorage.removeItem("_session_expiry");
     // Ne pas supprimer l'onboarding du localStorage pour permettre la reconnexion
     // L'onboarding reste dans la base de données et sera rechargé lors de la reconnexion
   };
@@ -277,11 +342,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (userSnap.exists()) {
           const userData = userSnap.data();
-          setUser({
+          const updatedUser = {
             ...user,
             isAdmin: userData.isAdmin === true,
             name: userData.name || user.name,
-          });
+          };
+          setUser(updatedUser);
+          localStorage.setItem("_auth_user", JSON.stringify(updatedUser));
         }
       }
     } catch (e) {
@@ -290,7 +357,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, onboarding, login, signup, loginWithGoogle, logout, saveOnboarding, sendVerification, verifyCode, isAdmin, refreshUser }}>
+    <AuthContext.Provider value={{ user, onboarding, login, signup, loginWithGoogle, logout, saveOnboarding, sendVerification, verifyCode, isAdmin, refreshUser, sessionExpiry }}>
       {children}
     </AuthContext.Provider>
   );

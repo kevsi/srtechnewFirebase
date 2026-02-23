@@ -11,6 +11,7 @@ export async function initializeFirebase() {
   if (!isFirebaseEnabled) {
     return { auth: null, db: null, storage: null, googleProvider: null, error: null };
   }
+  
   if (_initialized) {
     return { auth: _auth, db: _db, storage: _storage, googleProvider: _googleProvider, error: _initError };
   }
@@ -41,6 +42,7 @@ export async function initializeFirebase() {
 
     if (!getApps().length) {
       initializeApp(firebaseConfig as any);
+      console.log("Firebase initialized");
     }
 
     _auth = getAuth();
